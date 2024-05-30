@@ -1,0 +1,231 @@
+---
+title: "Project UAS 3321600028"
+output: html_notebook
+---
+
+```{r}
+library(caret)
+library(readr)
+library(ggplot2)
+library(arules)
+library(Metrics)
+library(textclean)
+library(corrplot)
+```
+
+
+```{r}
+#data training
+complete = read.csv("CompleteResponses.csv")
+str(complete)
+head(complete, 10)
+
+#data testing
+incomplete = read.csv("SurveyIncomplete.csv")
+str(incomplete)
+head(incomplete, 10)
+```
+
+
+```{r}
+set.seed(203)
+# Mencari outlier.
+boxplot(complete[, c("salary", "credit")])
+boxplot(complete[, c("age")])
+boxplot(complete[, c("elevel", "car", "zipcode")])
+```
+
+```{r}
+sum(is.na(complete))
+```
+
+```{r}
+corrplot(round(digits = 2, cor(complete[, c(1, 2, 6)], method = c("pearson", 
+    "kendall", "spearman"))))
+```
+
+```{r}
+#Mengubah data numerik menjadi faktor
+complete$elevel <- as.factor(complete$elevel)
+complete$car <- as.factor(complete$car)
+complete$zipcode <- as.factor(complete$zipcode)
+complete$brand <-as.factor(complete$brand)
+```
+
+```{r}
+incomplete$elevel <- as.factor(incomplete$elevel)
+incomplete$car <- as.factor(incomplete$car)
+incomplete$zipcode <- as.factor(incomplete$zipcode)
+incomplete$brand <-as.factor(incomplete$brand)
+```
+
+```{r}
+#Mengubah nama
+complete$elevel <- mgsub(x = complete$elevel, pattern = c(0, 1, 2, 3, 4), replacement = c("Less than HS", 
+    "HS", "College", "Degree", "Master's, Doc, others"))
+complete$car <- mgsub(x = complete$car, pattern = c(1, 2, 3, 4, 
+    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), replacement = c("BMW", 
+    "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ford", "Honda", 
+    "Hyundai", "Jeep", "Kia", "Lincoln", "Mazda", "Mercedes Benz", "Mitsubishi", 
+    "Nissan", "Ram", "Subaru", "Toyota", "None of the above"))
+complete$zipcode <- mgsub(x = complete$zipcode, pattern = c(0, 
+    1, 2, 3, 4, 5, 6, 7, 8), replacement = c("New England", "Mid-Atlantic", 
+    "East North Central", "West North Central", "South Atlantic", "East South Central", 
+    "West South Central", "Mountain", "Pacific"))
+complete$brand <- mgsub(pattern = c(0, 1), replacement = c("Acer", "Sony"), 
+    x = complete$brand)
+```
+
+```{r}
+incomplete$elevel <- mgsub(x = incomplete$elevel, pattern = c(0, 1, 2, 3, 4), replacement = c("Less than HS", 
+    "HS", "College", "Degree", "Master's, Doc, others"))
+incomplete$car <- mgsub(x = incomplete$car, pattern = c(1, 2, 3, 4, 
+    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), replacement = c("BMW", 
+    "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ford", "Honda", 
+    "Hyundai", "Jeep", "Kia", "Lincoln", "Mazda", "Mercedes Benz", "Mitsubishi", 
+    "Nissan", "Ram", "Subaru", "Toyota", "None of the above"))
+incomplete$zipcode <- mgsub(x = incomplete$zipcode, pattern = c(0, 
+    1, 2, 3, 4, 5, 6, 7, 8), replacement = c("New England", "Mid-Atlantic", 
+    "East North Central", "West North Central", "South Atlantic", "East South Central", 
+    "West South Central", "Mountain", "Pacific"))
+incomplete$brand <- mgsub(pattern = c(0, 1), replacement = c("Acer", "Sony"), 
+    x = incomplete$brand)
+```
+
+```{r}
+table(complete$brand, dnn= c("Brand"))
+```
+
+```{r}
+prop.table(table(complete$brand, dnn = c("Brand")))
+```
+
+```{r}
+complete_responses <- complete
+incomplete_responses <- incomplete
+# Diskritisasi
+complete$salary <- discretize(complete$salary, method = "interval", 
+    breaks = 5)
+incomplete$salary <- discretize(incomplete$salary, method = "interval", 
+    5)
+complete$age <- discretize(complete$age, "interval", 6)
+incomplete$age <- discretize(incomplete$age, method = "interval", 
+    breaks = 6)
+complete$credit <- discretize(complete$credit, method = "interval", 
+    5)
+incomplete$credit <- discretize(incomplete$credit, method = "interval", 
+    5)
+```
+
+
+```{r}
+complete$state <- "complete"
+incomplete$state <- "incomplete"
+whole_responses <- rbind(complete, incomplete)
+
+for (i in c("salary", "age", "elevel", "car", "zipcode", "credit")) {
+    print(ggplot(data = whole_responses, aes_string(i, fill = "state")) + geom_bar(alpha = 0.5, 
+        position = "identity"))
+}
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = salary, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20, )
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = age, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20)
+```
+```{r}
+ggplot(data = complete, mapping = aes(x = elevel, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20)
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = car, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20) + theme(axis.text.x = element_text(angle = 60, 
+    hjust = 1))
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = zipcode, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20) + theme(axis.text.x = element_text(angle = 60, 
+    hjust = 1))
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = credit, fill = brand)) + geom_bar(alpha = 0.5, 
+    position = "identity", color = "black", bins = 20)
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = age, y = credit, color = brand)) + 
+    geom_jitter()
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = credit, y = salary, color = brand)) + 
+    geom_jitter()
+```
+
+```{r}
+ggplot(data = complete, mapping = aes(x = age, y = salary, color = brand)) + 
+    geom_jitter() + geom_smooth()
+```
+
+```{r}
+set.seed(123)
+sel_compl_responses <- complete[, c(1, 2, 7)]
+# We build the new train and test sets.
+training_index <- createDataPartition(y = sel_compl_responses$brand, p = 0.75, 
+    list = FALSE)
+strainSet <- sel_compl_responses[training_index, ]
+stestSet <- sel_compl_responses[-training_index, ]
+strainSet$brand <- as.factor(strainSet$brand)
+
+model.reglog <- glm(brand~.,data=strainSet, family="binomial")
+summary(model.reglog)
+```
+
+```{r}
+(exp(coef(model.reglog))) 
+```
+
+```{r}
+pred1 <- predict(model.reglog, stestSet, type="response")
+predicted1 <- round(pred1)
+tab1 <- table(Predicted = predicted1, Reference = stestSet$brand)
+tab1
+```
+
+```{r}
+# Creating a dataframe of observed and predicted data
+act_pred1 <- data.frame(observed = stestSet$brand, predicted = 
+                         factor(predicted1))
+#% accuracy benar
+sum(diag(tab1))/sum(tab1)
+```
+
+```{r}
+predicted_responses <- model.reglog
+```
+
+
+```{r}
+ggplot(complete_responses, aes(x = "", fill = brand)) + geom_bar() + coord_polar(theta = "y") + 
+    ggtitle("Complete Survey")
+```
+
+```{r}
+ggplot(predicted_responses, aes(x = "", fill = brand)) + geom_bar() + coord_polar(theta = "y") + 
+    ggtitle("Incomplete Survey")
+```
+
+```{r}
+ggplot(rbind(complete_responses, predicted_responses$brand), aes(x = "", fill = brand)) + 
+    geom_bar() + coord_polar(theta = "y") + ggtitle("Total Survey")
+```
+
+
